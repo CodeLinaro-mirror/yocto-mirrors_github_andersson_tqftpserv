@@ -21,6 +21,8 @@
 #define READONLY_PATH	"/readonly/firmware/image/"
 #define READWRITE_PATH	"/readwrite/"
 #define UPDATES_DIR	"updates/"
+#define READONLY_FW_BASE	"/readonly/firmware/"
+#define READONLY_MODEM_PATH	READONLY_FW_BASE "modem_pr"
 
 #ifndef ANDROID
 #define FIRMWARE_BASE	"/lib/firmware/"
@@ -198,15 +200,17 @@ static int translate_readwrite(const char *file, int flags)
 /**
  * translate_open() - open file after translating path
  *
-
- * Strips /readonly/firmware/image and search among remoteproc firmware.
- * Replaces /readwrite with a temporary directory.
-
+ * Strips /readonly/firmware/image/ and searches among remoteproc firmware.
+ * Strips /readonly/firmware/modem_pr and searches among remoteproc firmware
+ * using the modem_pr relative path (e.g., maps to READONLY_FW_BASE/<fw_dir>/modem_pr/...).
+ * Replaces /readwrite/ with a persistent directory.
  */
 int translate_open(const char *path, int flags)
 {
 	if (!strncmp(path, READONLY_PATH, strlen(READONLY_PATH)))
 		return translate_readonly(path + strlen(READONLY_PATH));
+	else if (!strncmp(path, READONLY_MODEM_PATH, strlen(READONLY_MODEM_PATH)))
+		return translate_readonly(path + strlen(READONLY_FW_BASE));
 	else if (!strncmp(path, READWRITE_PATH, strlen(READWRITE_PATH)))
 		return translate_readwrite(path + strlen(READWRITE_PATH), flags);
 
