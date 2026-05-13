@@ -21,13 +21,15 @@
 #define READONLY_PATH	"/readonly/firmware/image/"
 #define READWRITE_PATH	"/readwrite/"
 #define UPDATES_DIR	"updates/"
+#define READONLY_FW_BASE	"/readonly/firmware/"
+#define READONLY_MODEM_PATH	READONLY_FW_BASE "modem_pr"
 
 #ifndef ANDROID
 #define FIRMWARE_BASE	"/lib/firmware/"
-#define TQFTPSERV_TMP	"/tmp/tqftpserv"
+#define TQFTPSERV_RW_DIR	"/var/lib/tqftpserv"
 #else
 #define FIRMWARE_BASE	"/vendor/firmware/"
-#define TQFTPSERV_TMP	"/data/vendor/tmp/tqftpserv"
+#define TQFTPSERV_RW_DIR	"/data/vendor/tmp/tqftpserv"
 #endif
 
 static int open_maybe_compressed(const char *path);
@@ -163,7 +165,7 @@ static int translate_readonly(const char *file)
 }
 
 /**
- * translate_readwrite() - open "file" from a temporary directory
+ * translate_readwrite() - open "file" from the persistent readwrite directory
  * @file:	relative path of the requested file, with /readwrite/ stripped
  * @flags:	flags to be passed to open(2)
  *
@@ -175,15 +177,15 @@ static int translate_readwrite(const char *file, int flags)
 	int ret;
 	int fd;
 
-	ret = mkdir(TQFTPSERV_TMP, 0700);
+	ret = mkdir(TQFTPSERV_RW_DIR, 0700);
 	if (ret < 0 && errno != EEXIST) {
-		warn("failed to create temporary tqftpserv directory");
+		warn("failed to create tqftpserv readwrite directory");
 		return -1;
 	}
 
-	base = open(TQFTPSERV_TMP, O_RDONLY | O_DIRECTORY);
+	base = open(TQFTPSERV_RW_DIR, O_RDONLY | O_DIRECTORY);
 	if (base < 0) {
-		warn("failed top open temporary tqftpserv directory");
+		warn("failed to open tqftpserv readwrite directory");
 		return -1;
 	}
 
@@ -198,15 +200,17 @@ static int translate_readwrite(const char *file, int flags)
 /**
  * translate_open() - open file after translating path
  *
-
- * Strips /readonly/firmware/image and search among remoteproc firmware.
- * Replaces /readwrite with a temporary directory.
-
+ * Strips /readonly/firmware/image/ and searches among remoteproc firmware.
+ * Strips /readonly/firmware/modem_pr and searches among remoteproc firmware
+ * using the modem_pr relative path (e.g., maps to READONLY_FW_BASE/<fw_dir>/modem_pr/...).
+ * Replaces /readwrite/ with a persistent directory.
  */
 int translate_open(const char *path, int flags)
 {
 	if (!strncmp(path, READONLY_PATH, strlen(READONLY_PATH)))
 		return translate_readonly(path + strlen(READONLY_PATH));
+	else if (!strncmp(path, READONLY_MODEM_PATH, strlen(READONLY_MODEM_PATH)))
+		return translate_readonly(path + strlen(READONLY_FW_BASE));
 	else if (!strncmp(path, READWRITE_PATH, strlen(READWRITE_PATH)))
 		return translate_readwrite(path + strlen(READWRITE_PATH), flags);
 
